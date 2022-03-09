@@ -13,6 +13,7 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse,
         warn.conflicts = FALSE)
 library(semTools)
+library(ltm)
 
 transpose_df <- function(df) {
   t_df <- data.table::transpose(df)
@@ -130,6 +131,37 @@ albeiro_sd_mean <-
   mutate(promedio = round(promedio, digits = 2),
          des_est = round(des_est, digits = 2))
 
+albeiro_cronbach_RE <-
+  AbelardoSimData |> 
+  select(i1, i2, i3) |> 
+  cronbach.alpha() 
+
+albeiro_cronbach_DE <-
+  AbelardoSimData |> 
+  select(i4, i5, i6) |> 
+  cronbach.alpha() 
+
+albeiro_cronbach_CD <-
+  AbelardoSimData |> 
+  select(i7, i8, i9) |> 
+  cronbach.alpha() 
+
 albeiro_cronbach <- 
-  
+  tibble(RE = albeiro_cronbach_RE$alpha,
+         DE = albeiro_cronbach_DE$alpha,
+         CD = albeiro_cronbach_CD$alpha) |> 
+  transpose_df() |> 
+  rename(Variable_compuesta = rowname,
+         Cronbach = "1") |> 
+  right_join(albeiro_sd_mean) |> 
+  select(Variable_compuesta, 
+         Cronbach, 
+         promedio, 
+         des_est) |> 
+  mutate(Cronbach = round(Cronbach, 
+                          digits = 2))
+
+rm(albeiro_mean,
+   albeiro_sd, 
+   albeiro_sd_mean)
 ```
