@@ -1,0 +1,135 @@
+---
+title: "Abelardo_Analysis"
+author: "Sebastian Robledo"
+date: "3/9/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+library(tidyverse,
+        warn.conflicts = FALSE)
+library(semTools)
+
+transpose_df <- function(df) {
+  t_df <- data.table::transpose(df)
+  colnames(t_df) <- rownames(df)
+  rownames(t_df) <- colnames(df)
+  t_df <- t_df %>%
+    tibble::rownames_to_column(.data = .) %>%
+    tibble::as_tibble(.)
+  return(t_df)
+}
+```
+
+# Artículo 1
+
+## SEM Análisis
+
+## Simulación de datos
+
+RE = Ritual Evaluativo
+DE = Deserción Escolar
+CD = Creencias de los docentes
+
+La deserción escolar es influenciada por el ritual evaluativo y por la creencia de los docente 
+
+DE ~ RE + CD
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+AbelardoModel <- 
+  "RE =~ i1 + i2 + i3
+   DE =~ i4 + i5 + i6
+   CD =~ i7 + i8 + i9
+   DE =~ RE + CD"
+
+AbelardoDataModel <- 
+  "RE =~ 0.9*i1 + 0.9*i2 + 0.9*i3
+   DE =~ 0.9*i4 + 0.9*i5 + 0.9*i6
+   CD =~ 0.9*i7 + 0.9*i8 + 0.9*i9
+   DE =~ 0.9*RE + 0.9*CD"
+
+set.seed(10001)
+AbelardoSimModel.norm <- 
+  simulateData(AbelardoDataModel, 
+               sample.nobs = 1000)
+# print(head(AbelardoSimModel.norm))
+
+AbelardoSimData <- 
+  data.frame(lapply(AbelardoSimModel.norm, 
+                    function(x) {cut(x, 
+                                     breaks = 5, 
+                                     labels = FALSE)}))
+```
+
+
+
+
+### Creación y evaluación del modelo
+
+```{r}
+AbelardoModel <- 
+  "RE =~ i1 + i2 + i3
+   DE =~ i4 + i5 + i6
+   CD =~ i7 + i8 + i9
+   DE =~ RE + CD"
+
+Abelardo.fit <- 
+  cfa(AbelardoModel, 
+      data = AbelardoSimData)
+```
+
+Revisamos las cargas 
+
+```{r}
+inspect(Abelardo.fit, 
+        what = "std")$lambda
+```
+
+Evaluando el modelo 
+
+```{r}
+summary(Abelardo.fit, 
+        standardized = TRUE, 
+        fit.measures = TRUE)
+```
+
+Table 1. Promedios, desviaciones estándar, confiabilidad interna y variables compuestas (N = 1000)
+
+```{r}
+albeiro_mean <- 
+  AbelardoSimData |> 
+  rowwise() |> 
+  mutate(RE = mean(i1, i2, i3),
+         DE = mean(i4, i5, i6), 
+         CD = mean(i7, i8, i9)) |> 
+  select(RE, DE, CD) |> 
+  ungroup() |> 
+  summarise(across(everything(), mean))
+
+albeiro_sd <- 
+  AbelardoSimData |> 
+  rowwise() |> 
+  mutate(RE = mean(i1, i2, i3),
+         DE = mean(i4, i5, i6), 
+         CD = mean(i7, i8, i9)) |> 
+  select(RE, DE, CD) |> 
+  ungroup() |> 
+  summarise(across(everything(), sd))
+
+albeiro_sd_mean <- 
+  albeiro_mean |> 
+  bind_rows(albeiro_sd) |> 
+  transpose_df() |> 
+  rename(Variable_compuesta = rowname,
+         promedio = "1",
+         des_est = "2") |> 
+  mutate(promedio = round(promedio, digits = 2),
+         des_est = round(des_est, digits = 2))
+
+albeiro_cronbach <- 
+  
+```
