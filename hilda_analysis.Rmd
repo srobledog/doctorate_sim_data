@@ -1,5 +1,5 @@
 ---
-title: "Abelardo_Analysis"
+title: "janeth_Analysis"
 author: "Sebastian Robledo"
 date: "3/9/2022"
 output: 
@@ -40,37 +40,39 @@ transpose_df <- function(df) {
 
 ### Simulación de datos
 
-RE = Ritual Evaluativo DE = Deserción Escolar CD = Creencias de los
-docentes
+PC = Pensamiento Crítico
 
-La deserción escolar es influenciada por el ritual evaluativo y por la
-creencia de los docente
+EE = Estrategias de Enseñanza
 
-DE \~ RE + CD
+CRP = Capacidad de Resolución de Problemas
+
+El Pensamiento Crítico es influenciada por la Estrategias de Enseñanza y
+por la Capacidad de Resolución de Problemas
+
+PC \~ EE + CRP
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
-AbelardoModel <- 
-  "RE =~ i1 + i2 + i3
-   DE =~ i4 + i5 + i6
-   CD =~ i7 + i8 + i9
-   DE ~ RE
-   DE ~ CD"
+janethModel <- 
+  "EE =~ i1 + i2 + i3
+   CRP =~ i4 + i5 + i6
+   PC =~ i7 + i8 + i9
+   PC ~ EE
+   PC ~ ES"
 
-AbelardoDataModel <- 
-  "RE =~ i1 + 1.0*i2 + 0.9*i3
-   DE =~ i4 + 0.9*i5 + 1.2*i6
-   CD =~ i7 + 0.9*i8 + 0.9*i9
-   DE ~ 0.9*RE 
-   DE ~ 0.9*CD"
+janethDataModel <- 
+  "EE =~ i1 + 1.0*i2 + 0.9*i3
+   CRP =~ i4 + 0.9*i5 + 1.2*i6
+   PC =~ i7 + 0.9*i8 + 0.9*i9
+   PC ~ 0.9*EE 
+   PC ~ 0.9*CRP"
 
-set.seed(10001)
-AbelardoSimModel.norm <- 
-  simulateData(AbelardoDataModel, 
+janethSimModel.norm <- 
+  simulateData(janethDataModel, 
                sample.nobs = 1000)
-# print(head(AbelardoSimModel.norm))
+# print(head(janethSimModel.norm))
 
-AbelardoSimData <- 
-  data.frame(lapply(AbelardoSimModel.norm, 
+janethSimData <- 
+  data.frame(lapply(janethSimModel.norm, 
                     function(x) {cut(x, 
                                      breaks = 5, 
                                      labels = FALSE)}))
@@ -79,7 +81,7 @@ AbelardoSimData <-
 ### Análisis Exploratorio
 
 ```{r}
-factanal(AbelardoSimData, factors = 3, rotation = "promax")
+factanal(janethSimData, factors = 3, rotation = "promax")
 ```
 
 | Valor    | Concepto  |
@@ -95,22 +97,22 @@ factanal(AbelardoSimData, factors = 3, rotation = "promax")
 Creamos el modelo
 
 ```{r}
-AbelardoModel <- 
-  "RE =~ i1 + i2 + i3
-   DE =~ i4 + i5 + i6
-   CD =~ i7 + i8 + i9
-   DE ~ RE
-   DE ~ CD"
+janethModel <- 
+  "EE =~ i1 + i2 + i3
+   CRP =~ i4 + i5 + i6
+   PC =~ i7 + i8 + i9
+   PC ~ EE
+   PC ~ ES"
 
-Abelardo.fit <- 
-  cfa(AbelardoModel, 
-      data = AbelardoSimData)
+janeth.fit <- 
+  cfa(janethModel, 
+      data = janethSimData)
 ```
 
 Revisamos las cargas
 
 ```{r}
-inspect(Abelardo.fit, 
+inspect(janeth.fit, 
         what = "std")$lambda
 ```
 
@@ -119,7 +121,7 @@ inspect(Abelardo.fit,
 Evaluamos el modelo
 
 ```{r}
-summary(Abelardo.fit, 
+summary(janeth.fit, 
         # standardized = TRUE, 
         fit.measures = TRUE)
 ```
@@ -137,8 +139,8 @@ Promedios, desviaciones estándar, confiabilidad interna y variables
 compuestas (N = 1000)
 
 ```{r message=TRUE, warning=TRUE}
-abelardo_mean <- 
-  AbelardoSimData |> 
+janeth_mean <- 
+  janethSimData |> 
   rowwise() |> 
   mutate(RE = mean(i1, i2, i3),
          DE = mean(i4, i5, i6), 
@@ -147,8 +149,8 @@ abelardo_mean <-
   ungroup() |> 
   summarise(across(everything(), mean))
 
-abelardo_sd <- 
-  AbelardoSimData |> 
+janeth_sd <- 
+  janethSimData |> 
   rowwise() |> 
   mutate(RE = mean(i1, i2, i3),
          DE = mean(i4, i5, i6), 
@@ -157,9 +159,9 @@ abelardo_sd <-
   ungroup() |> 
   summarise(across(everything(), sd))
 
-abelardo_sd_mean <- 
-  abelardo_mean |> 
-  bind_rows(abelardo_sd) |> 
+janeth_sd_mean <- 
+  janeth_mean |> 
+  bind_rows(janeth_sd) |> 
   transpose_df() |> 
   rename(Variable_compuesta = rowname,
          promedio = "1",
@@ -167,29 +169,29 @@ abelardo_sd_mean <-
   mutate(promedio = round(promedio, digits = 2),
          des_est = round(des_est, digits = 2))
 
-abelardo_cronbach_RE <-
-  AbelardoSimData |> 
+janeth_cronbach_RE <-
+  janethSimData |> 
   dplyr::select(i1, i2, i3) |> 
   cronbach.alpha() 
 
-abelardo_cronbach_DE <-
-  AbelardoSimData |> 
+janeth_cronbach_DE <-
+  janethSimData |> 
   dplyr::select(i4, i5, i6) |> 
   cronbach.alpha() 
 
-abelardo_cronbach_CD <-
-  AbelardoSimData |> 
+janeth_cronbach_CD <-
+  janethSimData |> 
   dplyr::select(i7, i8, i9) |> 
   cronbach.alpha() 
 
-abelardo_cronbach <- 
-  tibble(RE = abelardo_cronbach_RE$alpha,
-         DE = abelardo_cronbach_DE$alpha,
-         CD = abelardo_cronbach_CD$alpha) |> 
+janeth_cronbach <- 
+  tibble(RE = janeth_cronbach_RE$alpha,
+         DE = janeth_cronbach_DE$alpha,
+         CD = janeth_cronbach_CD$alpha) |> 
   transpose_df() |> 
   rename(Variable_compuesta = rowname,
          Cronbach = "1") |> 
-  right_join(abelardo_sd_mean) |> 
+  right_join(janeth_sd_mean) |> 
   dplyr::select(Variable_compuesta, 
          Cronbach, 
          promedio, 
@@ -204,11 +206,11 @@ abelardo_cronbach <-
                 des_est
                 )
 
-rm(abelardo_mean,
-   abelardo_sd, 
-   abelardo_sd_mean)
+rm(janeth_mean,
+   janeth_sd, 
+   janeth_sd_mean)
 
-abelardo_cronbach |> 
+janeth_cronbach |> 
   gt() |> 
   tab_header(
     title = "Tabla 1 Promedios, desviaciones estándar, confiabilidad interna y variables compuestas (N = 1000)"
@@ -231,25 +233,25 @@ Estadísticas a tener en cuenta
 Matrix de correlaciones
 
 ```{r}
-RE <- AbelardoSimData |> 
+RE <- janethSimData |> 
   rowwise() |> 
   mutate(RE = mean(i1, i2, i3)) 
 
-DE <- AbelardoSimData |> rowwise() |> mutate(DE = mean(i4, i5, i6))
-CD <- AbelardoSimData |> rowwise() |> mutate(CD = mean(i7, i8, i9))
+DE <- janethSimData |> rowwise() |> mutate(DE = mean(i4, i5, i6))
+CD <- janethSimData |> rowwise() |> mutate(CD = mean(i7, i8, i9))
 
-abelardo_latent <- 
+janeth_latent <- 
   tibble(RE = RE$RE,
          DE = DE$DE,
          CD = CD$CD)
 
-rcorr(as.matrix(abelardo_latent))
+rcorr(as.matrix(janeth_latent))
 ```
 
 ### Diagrama del modelo
 
 ```{r}
-semPaths(Abelardo.fit, 
+semPaths(janeth.fit, 
          what = "est", 
          fade = FALSE, 
          residuals = FALSE, 

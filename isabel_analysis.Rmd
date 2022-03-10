@@ -1,5 +1,5 @@
 ---
-title: "Abelardo_Analysis"
+title: "isabel_Analysis"
 author: "Sebastian Robledo"
 date: "3/9/2022"
 output: 
@@ -40,37 +40,39 @@ transpose_df <- function(df) {
 
 ### Simulación de datos
 
-RE = Ritual Evaluativo DE = Deserción Escolar CD = Creencias de los
-docentes
+IE = Inteligencia Emocional
 
-La deserción escolar es influenciada por el ritual evaluativo y por la
-creencia de los docente
+FA = Familia
 
-DE \~ RE + CD
+ES = Escuela
+
+La Inteligencia Emocional es influenciada por la Familia y por la
+Escuela
+
+IE \~ FA + ES
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
-AbelardoModel <- 
-  "RE =~ i1 + i2 + i3
-   DE =~ i4 + i5 + i6
-   CD =~ i7 + i8 + i9
-   DE ~ RE
-   DE ~ CD"
+isabelModel <- 
+  "FA =~ i1 + i2 + i3
+   ES =~ i4 + i5 + i6
+   IE =~ i7 + i8 + i9
+   IE ~ FA
+   IE ~ ES"
 
-AbelardoDataModel <- 
-  "RE =~ i1 + 1.0*i2 + 0.9*i3
-   DE =~ i4 + 0.9*i5 + 1.2*i6
-   CD =~ i7 + 0.9*i8 + 0.9*i9
-   DE ~ 0.9*RE 
-   DE ~ 0.9*CD"
+isabelDataModel <- 
+  "FA =~ i1 + 1.0*i2 + 0.9*i3
+   ES =~ i4 + 0.9*i5 + 1.2*i6
+   IE =~ i7 + 0.9*i8 + 0.9*i9
+   IE ~ 0.9*FA 
+   IE ~ 0.9*ES"
 
-set.seed(10001)
-AbelardoSimModel.norm <- 
-  simulateData(AbelardoDataModel, 
+isabelSimModel.norm <- 
+  simulateData(isabelDataModel, 
                sample.nobs = 1000)
-# print(head(AbelardoSimModel.norm))
+# print(head(isabelSimModel.norm))
 
-AbelardoSimData <- 
-  data.frame(lapply(AbelardoSimModel.norm, 
+isabelSimData <- 
+  data.frame(lapply(isabelSimModel.norm, 
                     function(x) {cut(x, 
                                      breaks = 5, 
                                      labels = FALSE)}))
@@ -79,7 +81,7 @@ AbelardoSimData <-
 ### Análisis Exploratorio
 
 ```{r}
-factanal(AbelardoSimData, factors = 3, rotation = "promax")
+factanal(isabelSimData, factors = 3, rotation = "promax")
 ```
 
 | Valor    | Concepto  |
@@ -95,22 +97,22 @@ factanal(AbelardoSimData, factors = 3, rotation = "promax")
 Creamos el modelo
 
 ```{r}
-AbelardoModel <- 
-  "RE =~ i1 + i2 + i3
-   DE =~ i4 + i5 + i6
-   CD =~ i7 + i8 + i9
-   DE ~ RE
-   DE ~ CD"
+isabelModel <- 
+  "FA =~ i1 + i2 + i3
+   ES =~ i4 + i5 + i6
+   IE =~ i7 + i8 + i9
+   IE ~ FA
+   IE ~ ES"
 
-Abelardo.fit <- 
-  cfa(AbelardoModel, 
-      data = AbelardoSimData)
+isabel.fit <- 
+  cfa(isabelModel, 
+      data = isabelSimData)
 ```
 
 Revisamos las cargas
 
 ```{r}
-inspect(Abelardo.fit, 
+inspect(isabel.fit, 
         what = "std")$lambda
 ```
 
@@ -119,7 +121,7 @@ inspect(Abelardo.fit,
 Evaluamos el modelo
 
 ```{r}
-summary(Abelardo.fit, 
+summary(isabel.fit, 
         # standardized = TRUE, 
         fit.measures = TRUE)
 ```
@@ -137,8 +139,8 @@ Promedios, desviaciones estándar, confiabilidad interna y variables
 compuestas (N = 1000)
 
 ```{r message=TRUE, warning=TRUE}
-abelardo_mean <- 
-  AbelardoSimData |> 
+isabel_mean <- 
+  isabelSimData |> 
   rowwise() |> 
   mutate(RE = mean(i1, i2, i3),
          DE = mean(i4, i5, i6), 
@@ -147,8 +149,8 @@ abelardo_mean <-
   ungroup() |> 
   summarise(across(everything(), mean))
 
-abelardo_sd <- 
-  AbelardoSimData |> 
+isabel_sd <- 
+  isabelSimData |> 
   rowwise() |> 
   mutate(RE = mean(i1, i2, i3),
          DE = mean(i4, i5, i6), 
@@ -157,9 +159,9 @@ abelardo_sd <-
   ungroup() |> 
   summarise(across(everything(), sd))
 
-abelardo_sd_mean <- 
-  abelardo_mean |> 
-  bind_rows(abelardo_sd) |> 
+isabel_sd_mean <- 
+  isabel_mean |> 
+  bind_rows(isabel_sd) |> 
   transpose_df() |> 
   rename(Variable_compuesta = rowname,
          promedio = "1",
@@ -167,29 +169,29 @@ abelardo_sd_mean <-
   mutate(promedio = round(promedio, digits = 2),
          des_est = round(des_est, digits = 2))
 
-abelardo_cronbach_RE <-
-  AbelardoSimData |> 
+isabel_cronbach_RE <-
+  isabelSimData |> 
   dplyr::select(i1, i2, i3) |> 
   cronbach.alpha() 
 
-abelardo_cronbach_DE <-
-  AbelardoSimData |> 
+isabel_cronbach_DE <-
+  isabelSimData |> 
   dplyr::select(i4, i5, i6) |> 
   cronbach.alpha() 
 
-abelardo_cronbach_CD <-
-  AbelardoSimData |> 
+isabel_cronbach_CD <-
+  isabelSimData |> 
   dplyr::select(i7, i8, i9) |> 
   cronbach.alpha() 
 
-abelardo_cronbach <- 
-  tibble(RE = abelardo_cronbach_RE$alpha,
-         DE = abelardo_cronbach_DE$alpha,
-         CD = abelardo_cronbach_CD$alpha) |> 
+isabel_cronbach <- 
+  tibble(RE = isabel_cronbach_RE$alpha,
+         DE = isabel_cronbach_DE$alpha,
+         CD = isabel_cronbach_CD$alpha) |> 
   transpose_df() |> 
   rename(Variable_compuesta = rowname,
          Cronbach = "1") |> 
-  right_join(abelardo_sd_mean) |> 
+  right_join(isabel_sd_mean) |> 
   dplyr::select(Variable_compuesta, 
          Cronbach, 
          promedio, 
@@ -204,11 +206,11 @@ abelardo_cronbach <-
                 des_est
                 )
 
-rm(abelardo_mean,
-   abelardo_sd, 
-   abelardo_sd_mean)
+rm(isabel_mean,
+   isabel_sd, 
+   isabel_sd_mean)
 
-abelardo_cronbach |> 
+isabel_cronbach |> 
   gt() |> 
   tab_header(
     title = "Tabla 1 Promedios, desviaciones estándar, confiabilidad interna y variables compuestas (N = 1000)"
@@ -231,25 +233,25 @@ Estadísticas a tener en cuenta
 Matrix de correlaciones
 
 ```{r}
-RE <- AbelardoSimData |> 
+RE <- isabelSimData |> 
   rowwise() |> 
   mutate(RE = mean(i1, i2, i3)) 
 
-DE <- AbelardoSimData |> rowwise() |> mutate(DE = mean(i4, i5, i6))
-CD <- AbelardoSimData |> rowwise() |> mutate(CD = mean(i7, i8, i9))
+DE <- isabelSimData |> rowwise() |> mutate(DE = mean(i4, i5, i6))
+CD <- isabelSimData |> rowwise() |> mutate(CD = mean(i7, i8, i9))
 
-abelardo_latent <- 
+isabel_latent <- 
   tibble(RE = RE$RE,
          DE = DE$DE,
          CD = CD$CD)
 
-rcorr(as.matrix(abelardo_latent))
+rcorr(as.matrix(isabel_latent))
 ```
 
 ### Diagrama del modelo
 
 ```{r}
-semPaths(Abelardo.fit, 
+semPaths(isabel.fit, 
          what = "est", 
          fade = FALSE, 
          residuals = FALSE, 

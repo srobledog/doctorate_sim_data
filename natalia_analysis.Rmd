@@ -1,5 +1,5 @@
 ---
-title: "Abelardo_Analysis"
+title: "natalia_Analysis"
 author: "Sebastian Robledo"
 date: "3/9/2022"
 output: 
@@ -40,37 +40,39 @@ transpose_df <- function(df) {
 
 ### Simulación de datos
 
-RE = Ritual Evaluativo DE = Deserción Escolar CD = Creencias de los
-docentes
+FIM = Formación Inicial de Maestros
 
-La deserción escolar es influenciada por el ritual evaluativo y por la
-creencia de los docente
+PP = Prácticas Pedagógicas
 
-DE \~ RE + CD
+AA = Alfabetización académica
+
+El Formación Inicial de Maestros es influenciada por la Prácticas
+Pedagógicas y por la Alfabetización académica
+
+FIM \~ PP + AA
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
-AbelardoModel <- 
-  "RE =~ i1 + i2 + i3
-   DE =~ i4 + i5 + i6
-   CD =~ i7 + i8 + i9
-   DE ~ RE
-   DE ~ CD"
+nataliaModel <- 
+  "PP =~ i1 + i2 + i3
+   AA =~ i4 + i5 + i6
+   FIM =~ i7 + i8 + i9
+   FIM ~ PP
+   FIM ~ AA"
 
-AbelardoDataModel <- 
-  "RE =~ i1 + 1.0*i2 + 0.9*i3
-   DE =~ i4 + 0.9*i5 + 1.2*i6
-   CD =~ i7 + 0.9*i8 + 0.9*i9
-   DE ~ 0.9*RE 
-   DE ~ 0.9*CD"
+nataliaDataModel <- 
+  "PP =~ i1 + 1.0*i2 + 0.9*i3
+   AA =~ i4 + 0.9*i5 + 1.2*i6
+   FIM =~ i7 + 0.9*i8 + 0.9*i9
+   FIM ~ 0.9*PP 
+   FIM ~ 0.9*AA"
 
-set.seed(10001)
-AbelardoSimModel.norm <- 
-  simulateData(AbelardoDataModel, 
+nataliaSimModel.norm <- 
+  simulateData(nataliaDataModel, 
                sample.nobs = 1000)
-# print(head(AbelardoSimModel.norm))
+# print(head(nataliaSimModel.norm))
 
-AbelardoSimData <- 
-  data.frame(lapply(AbelardoSimModel.norm, 
+nataliaSimData <- 
+  data.frame(lapply(nataliaSimModel.norm, 
                     function(x) {cut(x, 
                                      breaks = 5, 
                                      labels = FALSE)}))
@@ -79,7 +81,7 @@ AbelardoSimData <-
 ### Análisis Exploratorio
 
 ```{r}
-factanal(AbelardoSimData, factors = 3, rotation = "promax")
+factanal(nataliaSimData, factors = 3, rotation = "promax")
 ```
 
 | Valor    | Concepto  |
@@ -95,22 +97,22 @@ factanal(AbelardoSimData, factors = 3, rotation = "promax")
 Creamos el modelo
 
 ```{r}
-AbelardoModel <- 
-  "RE =~ i1 + i2 + i3
-   DE =~ i4 + i5 + i6
-   CD =~ i7 + i8 + i9
-   DE ~ RE
-   DE ~ CD"
+nataliaModel <- 
+  "PP =~ i1 + i2 + i3
+   AA =~ i4 + i5 + i6
+   FIM =~ i7 + i8 + i9
+   FIM ~ PP
+   FIM ~ AA"
 
-Abelardo.fit <- 
-  cfa(AbelardoModel, 
-      data = AbelardoSimData)
+natalia.fit <- 
+  cfa(nataliaModel, 
+      data = nataliaSimData)
 ```
 
 Revisamos las cargas
 
 ```{r}
-inspect(Abelardo.fit, 
+inspect(natalia.fit, 
         what = "std")$lambda
 ```
 
@@ -119,7 +121,7 @@ inspect(Abelardo.fit,
 Evaluamos el modelo
 
 ```{r}
-summary(Abelardo.fit, 
+summary(natalia.fit, 
         # standardized = TRUE, 
         fit.measures = TRUE)
 ```
@@ -137,8 +139,8 @@ Promedios, desviaciones estándar, confiabilidad interna y variables
 compuestas (N = 1000)
 
 ```{r message=TRUE, warning=TRUE}
-abelardo_mean <- 
-  AbelardoSimData |> 
+natalia_mean <- 
+  nataliaSimData |> 
   rowwise() |> 
   mutate(RE = mean(i1, i2, i3),
          DE = mean(i4, i5, i6), 
@@ -147,8 +149,8 @@ abelardo_mean <-
   ungroup() |> 
   summarise(across(everything(), mean))
 
-abelardo_sd <- 
-  AbelardoSimData |> 
+natalia_sd <- 
+  nataliaSimData |> 
   rowwise() |> 
   mutate(RE = mean(i1, i2, i3),
          DE = mean(i4, i5, i6), 
@@ -157,9 +159,9 @@ abelardo_sd <-
   ungroup() |> 
   summarise(across(everything(), sd))
 
-abelardo_sd_mean <- 
-  abelardo_mean |> 
-  bind_rows(abelardo_sd) |> 
+natalia_sd_mean <- 
+  natalia_mean |> 
+  bind_rows(natalia_sd) |> 
   transpose_df() |> 
   rename(Variable_compuesta = rowname,
          promedio = "1",
@@ -167,29 +169,29 @@ abelardo_sd_mean <-
   mutate(promedio = round(promedio, digits = 2),
          des_est = round(des_est, digits = 2))
 
-abelardo_cronbach_RE <-
-  AbelardoSimData |> 
+natalia_cronbach_RE <-
+  nataliaSimData |> 
   dplyr::select(i1, i2, i3) |> 
   cronbach.alpha() 
 
-abelardo_cronbach_DE <-
-  AbelardoSimData |> 
+natalia_cronbach_DE <-
+  nataliaSimData |> 
   dplyr::select(i4, i5, i6) |> 
   cronbach.alpha() 
 
-abelardo_cronbach_CD <-
-  AbelardoSimData |> 
+natalia_cronbach_CD <-
+  nataliaSimData |> 
   dplyr::select(i7, i8, i9) |> 
   cronbach.alpha() 
 
-abelardo_cronbach <- 
-  tibble(RE = abelardo_cronbach_RE$alpha,
-         DE = abelardo_cronbach_DE$alpha,
-         CD = abelardo_cronbach_CD$alpha) |> 
+natalia_cronbach <- 
+  tibble(RE = natalia_cronbach_RE$alpha,
+         DE = natalia_cronbach_DE$alpha,
+         CD = natalia_cronbach_CD$alpha) |> 
   transpose_df() |> 
   rename(Variable_compuesta = rowname,
          Cronbach = "1") |> 
-  right_join(abelardo_sd_mean) |> 
+  right_join(natalia_sd_mean) |> 
   dplyr::select(Variable_compuesta, 
          Cronbach, 
          promedio, 
@@ -204,11 +206,11 @@ abelardo_cronbach <-
                 des_est
                 )
 
-rm(abelardo_mean,
-   abelardo_sd, 
-   abelardo_sd_mean)
+rm(natalia_mean,
+   natalia_sd, 
+   natalia_sd_mean)
 
-abelardo_cronbach |> 
+natalia_cronbach |> 
   gt() |> 
   tab_header(
     title = "Tabla 1 Promedios, desviaciones estándar, confiabilidad interna y variables compuestas (N = 1000)"
@@ -231,25 +233,25 @@ Estadísticas a tener en cuenta
 Matrix de correlaciones
 
 ```{r}
-RE <- AbelardoSimData |> 
+RE <- nataliaSimData |> 
   rowwise() |> 
   mutate(RE = mean(i1, i2, i3)) 
 
-DE <- AbelardoSimData |> rowwise() |> mutate(DE = mean(i4, i5, i6))
-CD <- AbelardoSimData |> rowwise() |> mutate(CD = mean(i7, i8, i9))
+DE <- nataliaSimData |> rowwise() |> mutate(DE = mean(i4, i5, i6))
+CD <- nataliaSimData |> rowwise() |> mutate(CD = mean(i7, i8, i9))
 
-abelardo_latent <- 
+natalia_latent <- 
   tibble(RE = RE$RE,
          DE = DE$DE,
          CD = CD$CD)
 
-rcorr(as.matrix(abelardo_latent))
+rcorr(as.matrix(natalia_latent))
 ```
 
 ### Diagrama del modelo
 
 ```{r}
-semPaths(Abelardo.fit, 
+semPaths(natalia.fit, 
          what = "est", 
          fade = FALSE, 
          residuals = FALSE, 
