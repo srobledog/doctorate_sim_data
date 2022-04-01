@@ -22,6 +22,9 @@ library(ltm)
 library(gt)
 library(semPlot)
 library(Hmisc)
+library(bibliometrix)
+library(tidygraph)
+library(igraph)
 
 transpose_df <- function(df) {
   t_df <- data.table::transpose(df)
@@ -34,11 +37,58 @@ transpose_df <- function(df) {
 }
 ```
 
-# Artículo 1
+# Artículo 4 - ASN
 
-## SEM Análisis
+Cargando los datos
 
-### Simulación de datos
+```{r}
+natalia_scopus <- 
+  convert2df("data/Natalia_scopus.bib",
+             dbsource = "scopus", 
+             format = "bibtex")
+write_csv(natalia_scopus, "data/Natalia_scopus_df.csv")
+
+natalia_asn <- 
+  natalia_scopus |> 
+  dplyr::select(SR, AU) |> 
+  separate_rows(AU, 
+                sep = ";") |> 
+  group_by(SR) |> 
+  filter(n() > 1) |> 
+  expand(from = AU, to = AU) |> 
+  filter( from != to) |> 
+  ungroup() |> 
+  dplyr::select(-SR) |> 
+  graph_from_data_frame(directed = TRUE) |> 
+  as_tbl_graph() |> 
+  convert(to_simple)
+  
+natalia_nodes <- 
+  natalia_asn |> 
+  activate(nodes) |> 
+  as_tibble() |> 
+  rename(Name = name) |> 
+  rownames_to_column("Id") |> 
+  select(Id, Name)
+
+natalia_edges <- 
+  natalia_asn |> 
+  activate(edges) |> 
+  as_tibble() |> 
+  select(Source = from,
+         Target = to)
+
+write_csv(natalia_nodes, "data/natalia_nodes.csv")
+write_csv(natalia_edges, "data/natalia_edges.csv")
+```
+
+# Artículo 3 - LM
+
+# Artículo 2 - GLM
+
+# Artículo 1 - SEM
+
+Simulación de datos
 
 FIM = Formación Inicial de Maestros
 
@@ -78,7 +128,7 @@ nataliaSimData <-
                                      labels = FALSE)}))
 ```
 
-### Análisis Exploratorio
+## Análisis Factorial Exploratorio
 
 ```{r}
 factanal(nataliaSimData, factors = 3, rotation = "promax")
@@ -92,7 +142,7 @@ factanal(nataliaSimData, factors = 3, rotation = "promax")
 | .6 - .69 | Muy bueno |
 | .7 +     | Excelente |
 
-### Modelo
+## Análisis Factorial Confirmatorio
 
 Creamos el modelo
 

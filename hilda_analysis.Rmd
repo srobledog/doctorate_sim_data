@@ -34,13 +34,58 @@ transpose_df <- function(df) {
 }
 ```
 
-# Artículo 1
+# Artículo 4 - ASN
 
-## SEM Análisis
+Cargando los datos
 
-### Simulación de datos
+```{r}
+hilda_scopus <- 
+  convert2df("data/hilda_scopus.bib",
+             dbsource = "scopus", 
+             format = "bibtex")
+write_csv(hilda_scopus, "data/hilda_scopus_df.csv")
 
-PC = Pensamiento Crítico
+hilda_asn <- 
+  hilda_scopus |> 
+  dplyr::select(SR, AU) |> 
+  separate_rows(AU, 
+                sep = ";") |> 
+  group_by(SR) |> 
+  filter(n() > 1) |> 
+  expand(from = AU, to = AU) |> 
+  filter( from != to) |> 
+  ungroup() |> 
+  dplyr::select(-SR) |> 
+  graph_from_data_frame(directed = TRUE) |> 
+  as_tbl_graph() |> 
+  convert(to_simple)
+  
+hilda_nodes <- 
+  hilda_asn |> 
+  activate(nodes) |> 
+  as_tibble() |> 
+  rename(Name = name) |> 
+  rownames_to_column("Id") |> 
+  select(Id, Name)
+
+hilda_edges <- 
+  hilda_asn |> 
+  activate(edges) |> 
+  as_tibble() |> 
+  select(Source = from,
+         Target = to)
+
+write_csv(hilda_nodes, "data/hilda_nodes.csv")
+write_csv(hilda_edges, "data/hilda_edges.csv")
+```
+
+# Artículo 3 - LM
+
+# Artículo 2 - GLM
+
+# Artículo 1 - SEM
+
+Simulación de datosPC = Pensamiento Crítico
 
 EE = Estrategias de Enseñanza
 
