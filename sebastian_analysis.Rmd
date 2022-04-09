@@ -1,0 +1,570 @@
+---
+title: "sebastian_Analysis"
+author: "Sebastian Robledo"
+date: "3/9/2022"
+output: 
+  html_document:
+            toc: TRUE
+            toc_float: TRUE
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(semTools)
+library(ltm)
+library(gt)
+library(semPlot)
+library(Hmisc)
+library(bibliometrix)
+library(igraph)
+library(tidygraph)
+
+transpose_df <- function(df) {
+  t_df <- data.table::transpose(df)
+  colnames(t_df) <- rownames(df)
+  rownames(t_df) <- colnames(df)
+  t_df <- t_df %>%
+    tibble::rownames_to_column(.data = .) %>%
+    tibble::as_tibble(.)
+  return(t_df)
+}
+```
+
+# Artículo 4 - ASN
+
+Cargando los datos
+
+```{r}
+sebastian_scopus <- 
+  convert2df("data/sebastian_scopus.bib",
+             dbsource = "scopus", 
+             format = "bibtex")
+```
+
+Edge list of main papers
+
+```{r}
+# Create the edge_list from main papers
+
+data_tidied_scopus_main <- 
+  sebastian_scopus |> 
+  select(SR, AU, PY) |> 
+  separate_rows(AU, sep = ";")
+  
+edgelist_scopus_dummy <- 
+  tibble(Source = as.character(),
+         Target = as.character(),
+         year = as.numeric())
+
+for (i in data_tidied_scopus_main$SR) {
+  
+  df_1 <- data_tidied_scopus_main |> 
+    filter(SR %in% i) |> 
+    dplyr::rename(year = PY)
+  
+  if (dim(df_1)[1] >= 2) {
+    
+    df_2 <- df_1 |> 
+      select(AU) |> 
+      pull() |> 
+      combn(2, simplify = FALSE) |> 
+      as_tibble(.name_repair = "minimal") |> 
+      t() |> 
+      data.frame() |> 
+      dplyr::rename(Source = 1, 
+                    Target = 2)
+    
+    df_3 <- 
+      df_2 |> 
+      bind_cols(df_1 |> 
+                  select(year) |> 
+                  unique())
+    
+    edgelist_scopus_dummy <- 
+      edgelist_scopus_dummy |> 
+      bind_rows(df_3)
+    
+  }
+  
+}
+
+edgelist_scopus_dummy_unique <- 
+  edgelist_scopus_dummy |> 
+  unique()
+```
+
+We need to extract the edgelist from scopus and their references
+
+```{r}
+asn_scopus_1 <- 
+  sebastian_scopus |> 
+  mutate(ID_TOS = str_extract(SR, ".*,"))
+
+asn_scopus_ref <- 
+  asn_scopus_1 |> 
+  select(CR) |> 
+  separate_rows(CR, sep = "; ") |> 
+  mutate(lastname = sub("\\., .*", "", CR),
+         lastname = sub(",", "", lastname),
+         lastname = sub("\\.", "", lastname),
+         year = str_extract(CR, "\\(([0-9]{4})\\)"),
+         year = str_remove_all(year, "\\(|\\)")) |> 
+  mutate(lastname = str_replace(lastname, 
+                                pattern = "\\.", 
+                                replacement = ""),
+         ID_TOS = paste0(lastname, ", ", year, ",")) |> 
+  select(ID_TOS, CR)
+
+edgelist_scopus_ref_dummy <- 
+  tibble(Source = as.character(),
+         Target = as.character())
+
+for (i in 1:length(asn_scopus_ref$CR)) {
+  
+  df_1 <- 
+    asn_scopus_ref |> 
+    select(CR) |> 
+    slice(i) |>
+    mutate(year_2 = str_extract(CR, "\\([0-9]{4}\\)"),
+           year_1 = str_remove(year_2, "\\("),
+           year = str_remove(year_1, "\\)"),
+           authors_2 = str_remove(CR, 
+                                  "\\([0-9]{4}\\) .*"),
+           authors_1 = str_extract(authors_2,
+                                   ".*\\.,"),
+           authors = str_replace_all(authors_1,
+                                     "\\.", 
+                                     replacement = "")) |> 
+    select(authors, year) |> 
+    separate_rows(authors, sep = ", ") |> 
+    mutate(authors = str_replace(authors, ",", ""))
+  
+  df_2 <- 
+    df_1 |> 
+    select(authors) |> 
+    pull() |> 
+    zoo::rollapply(2, by=2, c) |> 
+    as_tibble() |> 
+    unite(authors, sep = " ") |> 
+    mutate(authors = str_replace(authors, "(?<= [[:alpha:]]).*", ""))
+  
+  if (dim(df_2)[1] >= 2) {
+    
+    df_3 <- 
+      df_2 |> 
+      pull() |> 
+      combn(2, simplify = FALSE) |> 
+      as_tibble(.name_repair = "minimal") |> 
+      t() |> 
+      data.frame() |> 
+      dplyr::rename(Source = 1, 
+                    Target = 2)
+    
+    edgelist_scopus_ref_dummy <- 
+      edgelist_scopus_ref_dummy |> 
+      bind_rows(df_3) 
+    
+  }
+}
+
+edgelist_scopus_ref <- edgelist_scopus_ref_dummy |> 
+  filter(!str_detect(Source, "[0-9]"),
+         !str_detect(Target, "[0-9]")) |> 
+  mutate(year = as.numeric(year))
+```
+
+Merging both datasets 
+
+```{r}
+
+edgelist_scopus <- 
+  edgelist_scopus_dummy_unique |>
+  select(Source, Target) |> 
+  bind_rows(edgelist_scopus_ref_dummy) |> 
+  group_by(Source, Target) |> 
+  count()
+```
+
+
+Cleaning graph
+
+```{r}
+graph_scopus <- 
+  edgelist_scopus |> 
+  rename(weight = n) |> 
+  graph.data.frame(directed = FALSE, ) |> 
+  as_tbl_graph() |> 
+  activate(nodes) |> 
+  mutate(components = group_components(type = "weak")) |> 
+  filter(components == 1) |> 
+  mutate(degree = centrality_degree())
+```
+
+
+```{r}
+author_collab_graphml_nodes <- 
+  graph_scopus |> 
+  activate(nodes) |> 
+  as_tibble() |> 
+  rename(author = name) |> 
+  rownames_to_column("name") |> 
+  left_join(dat, 
+             by = c("name" = "student_id"))
+
+author_collab_graphml_edges <- 
+  graph_scopus |> 
+  activate(edges) |> 
+  as_tibble() 
+
+author_collab_graphml <- 
+  graph_from_data_frame(d = author_collab_graphml_edges, 
+                        directed = FALSE, 
+                        vertices = author_collab_graphml_nodes)
+
+write_graph(author_collab_graphml, "sebastian_ASN.graphml", "graphml") # Export author co-citation graph
+
+```
+
+Ego density
+
+https://stackoverflow.com/questions/67994935/igraph-get-ego-network-density-from-large-network
+
+```{r}
+egonet_list <- make_ego_graph(author_collab_graphml)
+
+dat <- data.frame(
+  student_id = names(V(author_collab_graphml)),
+  egonet_density = lapply(egonet_list, graph.density) %>% unlist()
+)
+```
+
+Main: Productivity per author 
+
+```{r}
+author_main_production <- 
+  data_tidied_scopus_main |> 
+  select(AU) |> 
+  count(AU, sort = TRUE)
+```
+
+References: Productivity per author 
+
+```{r}
+author_ref_production <- 
+  sebastian_scopus |> 
+  select(CR) |> 
+  slice(1) |> 
+  separate_rows(CR, sep = "; ") |> 
+  mutate(authors = str_remove(CR, "\\(([0-9]{4})\\).*"),
+         authors = str_extract(authors, ".*\\., "),
+         authors = str_remove_all(authors, "\\.")) |> 
+  na.omit()
+
+```
+
+```{r}
+author_ref_production_1 <- 
+  tibble()
+
+for (i in 1:length(author_ref_production$CR)) {
+  
+  df_1 <- 
+    author_ref_production |> 
+    slice(i) |>
+    mutate(authors_2 = str_remove(CR, 
+                                  "\\([0-9]{4}\\) .*"),
+           authors_1 = str_extract(authors_2,
+                                   ".*\\.,"),
+           authors = str_replace_all(authors_1,
+                                     "\\.", 
+                                     replacement = "")) |> 
+    select(authors, year) |> 
+    separate_rows(authors, sep = ", ") |> 
+    mutate(authors = str_replace(authors, ",", ""))
+  
+  df_2 <- 
+    author_ref_production |>
+    separate_rows(authors, sep = ", ") |> 
+    mutate(authors = str_replace(authors, ",", "")) |>
+    filter(authors != "") |> 
+    pull() |> 
+    zoo::rollapply(2, by=2, c) |> 
+    as_tibble() |> 
+    mutate(authors_1 = str_c(V1, V2, sep = " "))
+    unite(authors, sep = " ") |> 
+    mutate(authors = str_replace(authors, "(?<= [[:alpha:]]).*", ""))
+}
+```
+
+
+```{r}
+sebastian_scopus <- 
+  convert2df("data/sebastian_scopus.bib",
+             dbsource = "scopus", 
+             format = "bibtex")
+
+write_csv(sebastian_scopus, "data/sebastian_scopus_df.csv")
+
+sebastian_asn <- 
+  sebastian_scopus |> 
+  dplyr::select(SR, AU) |> 
+  separate_rows(AU, 
+                sep = ";") |> 
+  group_by(SR) |> 
+  filter(n() > 1) |> 
+  expand(from = AU, to = AU) |> 
+  filter( from != to) |> 
+  ungroup() |> 
+  dplyr::select(-SR) |> 
+  graph_from_data_frame(directed = TRUE) |> 
+  as_tbl_graph() |> 
+  convert(to_simple)
+  
+sebastian_nodes <- 
+  sebastian_asn |> 
+  activate(nodes) |> 
+  as_tibble() |> 
+  rename(Name = name) |> 
+  rownames_to_column("Id") |> 
+  select(Id, Name)
+
+sebastian_edges <- 
+  sebastian_asn |> 
+  activate(edges) |> 
+  as_tibble() |> 
+  select(Source = from,
+         Target = to)
+
+write_csv(sebastian_nodes, "data/sebastian_nodes.csv")
+write_csv(sebastian_edges, "data/sebastian_edges.csv")
+```
+
+# Artículo 3 - LM
+
+# Artículo 2 - GLM
+
+# Artículo 1 - SEM
+
+Simulación de datos
+
+EP = Estilo Parental REL = Relación MP = Modelo Pedagógico
+
+La relación es influenciada por el estilo parental y por el modelo
+pedagógico
+
+REL \~ EP + MP
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+sebastianModel <- 
+  "EP =~ i1 + i2 + i3
+   MP =~ i4 + i5 + i6
+   REL =~ i7 + i8 + i9
+   REL ~ EP
+   REL ~ MP"
+
+sebastianDataModel <- 
+  "EP =~ i1 + 1.0*i2 + 0.9*i3
+   MP =~ i4 + 0.9*i5 + 1.2*i6
+   REL =~ i7 + 0.9*i8 + 0.9*i9
+   REL ~ 0.9*EP 
+   REL ~ 0.9*MP"
+
+set.seed(10001)
+sebastianSimModel.norm <- 
+  simulateData(sebastianDataModel, 
+               sample.nobs = 1000)
+# print(head(sebastianSimModel.norm))
+
+sebastianSimData <- 
+  data.frame(lapply(sebastianSimModel.norm, 
+                    function(x) {cut(x, 
+                                     breaks = 5, 
+                                     labels = FALSE)}))
+```
+
+### Análisis Exploratorio
+
+```{r}
+factanal(sebastianSimData, factors = 3, rotation = "promax")
+```
+
+| Valor    | Concepto  |
+|----------|-----------|
+| \< 0.39  | pobre     |
+| .4 - .49 | Justo     |
+| .5 - .59 | Bueno     |
+| .6 - .69 | Muy bueno |
+| .7 +     | Excelente |
+
+### Modelo
+
+Creamos el modelo
+
+```{r}
+sebastianModel <- 
+  "EP =~ i1 + i2 + i3
+   MP =~ i4 + i5 + i6
+   REL =~ i7 + i8 + i9
+   REL ~ EP
+   REL ~ MP"
+
+sebastian.fit <- 
+  cfa(sebastianModel, 
+      data = sebastianSimData)
+```
+
+Revisamos las cargas
+
+```{r}
+inspect(sebastian.fit, 
+        what = "std")$lambda
+```
+
+\>.6
+
+Evaluamos el modelo
+
+```{r}
+summary(sebastian.fit, 
+        # standardized = TRUE, 
+        fit.measures = TRUE)
+```
+
+| Medidas                     | Valor a revisar |
+|-----------------------------|-----------------|
+| chi-square                  | p \< .05        |
+| CFI - Comparative Fit Index | \>.9            |
+| TLI - Tuker-Lewis Index     | \>.9            |
+| RMSEA                       | \<.05           |
+
+### Tabla 1
+
+Promedios, desviaciones estándar, confiabilidad interna y variables
+compuestas (N = 1000)
+
+```{r message=TRUE, warning=TRUE}
+sebastian_mean <- 
+  sebastianSimData |> 
+  rowwise() |> 
+  mutate(RE = mean(i1, i2, i3),
+         DE = mean(i4, i5, i6), 
+         CD = mean(i7, i8, i9)) |> 
+  dplyr::select(RE, DE, CD) |> 
+  ungroup() |> 
+  summarise(across(everything(), mean))
+
+sebastian_sd <- 
+  sebastianSimData |> 
+  rowwise() |> 
+  mutate(RE = mean(i1, i2, i3),
+         DE = mean(i4, i5, i6), 
+         CD = mean(i7, i8, i9)) |> 
+  dplyr::select(RE, DE, CD) |> 
+  ungroup() |> 
+  summarise(across(everything(), sd))
+
+sebastian_sd_mean <- 
+  sebastian_mean |> 
+  bind_rows(sebastian_sd) |> 
+  transpose_df() |> 
+  rename(Variable_compuesta = rowname,
+         promedio = "1",
+         des_est = "2") |> 
+  mutate(promedio = round(promedio, digits = 2),
+         des_est = round(des_est, digits = 2))
+
+sebastian_cronbach_RE <-
+  sebastianSimData |> 
+  dplyr::select(i1, i2, i3) |> 
+  cronbach.alpha() 
+
+sebastian_cronbach_DE <-
+  sebastianSimData |> 
+  dplyr::select(i4, i5, i6) |> 
+  cronbach.alpha() 
+
+sebastian_cronbach_CD <-
+  sebastianSimData |> 
+  dplyr::select(i7, i8, i9) |> 
+  cronbach.alpha() 
+
+sebastian_cronbach <- 
+  tibble(RE = sebastian_cronbach_RE$alpha,
+         DE = sebastian_cronbach_DE$alpha,
+         CD = sebastian_cronbach_CD$alpha) |> 
+  transpose_df() |> 
+  rename(Variable_compuesta = rowname,
+         Cronbach = "1") |> 
+  right_join(sebastian_sd_mean) |> 
+  dplyr::select(Variable_compuesta, 
+         Cronbach, 
+         promedio, 
+         des_est) |> 
+  mutate(Cronbach = round(Cronbach, 
+                          digits = 2),
+         No_items = 3) |> 
+  dplyr::select(Variable_compuesta,
+                No_items,
+                Cronbach,
+                promedio,
+                des_est
+                )
+
+rm(sebastian_mean,
+   sebastian_sd, 
+   sebastian_sd_mean)
+
+sebastian_cronbach |> 
+  gt() |> 
+  tab_header(
+    title = "Tabla 1 Promedios, desviaciones estándar, confiabilidad interna y variables compuestas (N = 1000)"
+  )
+```
+
+Estadísticas a tener en cuenta
+
+| Cronbach Alpha | Concepto                          |
+|----------------|-----------------------------------|
+| \<.6           | Inaceptable - Se eliminan items   |
+| 6 - .64        | Indeseable                        |
+| .65 - .69      | Aceptable minimamente             |
+| .7 - .79       | Respetable                        |
+| .8 - .89       | Muy bueno                         |
+| .9>            | Demasiado buenos - eliminar items |
+
+### Tabla 2
+
+Matrix de correlaciones
+
+```{r}
+RE <- sebastianSimData |> 
+  rowwise() |> 
+  mutate(RE = mean(i1, i2, i3)) 
+
+DE <- sebastianSimData |> rowwise() |> mutate(DE = mean(i4, i5, i6))
+CD <- sebastianSimData |> rowwise() |> mutate(CD = mean(i7, i8, i9))
+
+sebastian_latent <- 
+  tibble(RE = RE$RE,
+         DE = DE$DE,
+         CD = CD$CD)
+
+rcorr(as.matrix(sebastian_latent))
+```
+
+### Diagrama del modelo
+
+```{r}
+semPaths(sebastian.fit, 
+         what = "est", 
+         fade = FALSE, 
+         residuals = FALSE, 
+         edge.label.cex = 0.75)
+```

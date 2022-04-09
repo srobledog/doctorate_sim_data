@@ -17,11 +17,14 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 library(tidyverse)
+library(igraph )
+library(tidygraph)
 library(semTools)
 library(ltm)
 library(gt)
 library(semPlot)
 library(Hmisc)
+library(bibliometrix)
 
 transpose_df <- function(df) {
   t_df <- data.table::transpose(df)
@@ -34,11 +37,58 @@ transpose_df <- function(df) {
 }
 ```
 
-# Artículo 1
+# Artículo 4 - ASN
 
-## SEM Análisis
+Cargando los datos
 
-### Simulación de datos
+```{r}
+janneth_scopus <- 
+  convert2df("data/Janneth_scopus.bib",
+             dbsource = "scopus", 
+             format = "bibtex")
+write_csv(janneth_scopus, "data/Janneth_scopus.csv")
+
+janneth_asn <- 
+  janneth_scopus |> 
+  dplyr::select(SR, AU) |> 
+  separate_rows(AU, 
+                sep = ";") |> 
+  group_by(SR) |> 
+  filter(n() > 1) |> 
+  expand(from = AU, to = AU) |> 
+  filter( from != to) |> 
+  ungroup() |> 
+  dplyr::select(-SR) |> 
+  graph_from_data_frame(directed = TRUE) |> 
+  as_tbl_graph() |> 
+  convert(to_simple)
+  
+janneth_nodes <- 
+  janneth_asn |> 
+  activate(nodes) |> 
+  as_tibble() |> 
+  rename(Name = name) |> 
+  rownames_to_column("Id") |> 
+  select(Id, Name)
+
+janneth_edges <- 
+  janneth_asn |> 
+  activate(edges) |> 
+  as_tibble() |> 
+  select(Source = from,
+         Target = to)
+
+write_csv(janneth_nodes, "data/janneth_nodes.csv")
+write_csv(janneth_edges, "data/janneth_edges.csv")
+```
+
+# Artículo 3 - LM
+
+# Artículo 2 - GLM
+
+# Artículo 1 - SEM
+
+Simulación de datos
 
 PC = Pensamiento Crítico
 
