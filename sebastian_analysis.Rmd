@@ -48,7 +48,202 @@ sebastian_scopus <-
              format = "bibtex")
 ```
 
-Edge list of main papers
+Get Academic Social Network
+
+```{r}
+sebastian_asn <- 
+  get_asn(sebastian_scopus)
+```
+
+```{r}
+sebastian_asn_metrics <- 
+  sebastian_asn |> 
+  activate(nodes) |> 
+  mutate(constraint = node_constraint(),
+         degree = centrality_degree())
+```
+
+
+## Inferential statistic
+
+
+
+Getting ego density
+
+```{r}
+sebastian_asn_igraph <- 
+  sebastian_asn |> 
+  activate(nodes) |> 
+  mutate(degree = centrality_degree()) |> 
+  filter(degree != 1) |> 
+  as.igraph()
+
+
+egonet_list <- make_ego_graph(sebastian_asn_igraph)
+
+dat <- data.frame(
+  name = names(V(sebastian_asn_igraph)),
+  egonet_density = lapply(egonet_list, 
+                          graph.density) %>% 
+    unlist(),
+  constraint = lapply(egonet_list, 
+                          constraint) %>% 
+    unlist()
+)
+
+sebastian_asn_ego <- 
+  sebastian_asn |> 
+  activate(nodes) |> 
+  left_join(dat)
+
+```
+
+Getting papers published per author
+
+```{r}
+authors_production <- 
+  dummy |> 
+  count(AU) |> 
+  rename(name = AU,
+         total = n)
+```
+
+Merging data
+
+```{r}
+sebastian_asn_total <- 
+  sebastian_asn_ego |> 
+  activate(nodes) |> 
+  left_join(authors_production)
+```
+
+Correlation between ego density and production
+
+```{r}
+sebastian_data <- 
+  sebastian_asn_total |> 
+  activate(nodes) |> 
+  as_tibble() |> 
+  dplyr::select(egonet_density, 
+                total) |> 
+  na.omit()
+
+summary(lm(egonet_density ~ total,
+           sebastian_data))
+```
+
+# Others
+
+```{r}
+dummy_tbl <- 
+  tibble(from = c("e", "e", "e", "e", "c", "b"),
+         to = c("a", "b", "c", "d", "b", "a"))
+
+dummy_graph <- 
+  dummy_tbl |> 
+  graph_from_data_frame(directed = FALSE)
+
+ego_dummy_1 <- make_ego_graph(dummy_graph)
+
+dat_dummy_1 <- data.frame(
+  name = names(V(dummy_graph)),
+  egonet_density = lapply(ego_dummy_1,
+                          graph.density) %>% 
+    unlist()
+)
+```
+
+
+```{r}
+g <- make_ring(10)
+V(g)$name <- c("a", "b", "c", "d", "e", "f", "g", "h", "i", "j")
+ego_dummy <- make_ego_graph(g)
+
+dat_dummy <- data.frame(
+  name = names(V(g)),
+  egonet_density = lapply(ego_dummy, graph.density) %>% unlist()
+)
+
+```
+
+
+
+```{r}
+data_tidied_scopus_main <- 
+  sebastian_scopus |> 
+  dplyr::select(SR, AU, PY) |> 
+  separate_rows(AU, sep = ";")
+
+data_tidied_scopus_ref <-
+  sebastian_scopus |>
+  dplyr::select(SR, CR) |>
+  separate_rows(CR, sep = "; ") |>
+  na.omit() |> 
+  mutate(year = str_extract(CR, "\\([0-9]{4}\\)"),
+         year = str_remove_all(year, "[\\(\\)]")) |>
+  na.omit() |>
+  mutate(authors = str_extract(CR, ".*\\([0-9]{4}\\)"),
+         authors = str_extract(authors, ".*\\.,"),
+         authors = gsub("([^,]+,[^,]+),", "\\1;", authors),
+         authors = str_sub(authors, 1, nchar(authors)-1),
+         authors = str_replace_all(authors, 
+                                   pattern = "; ",
+                                   replacement = ";"),
+         authors = str_remove_all(authors, pattern = "\\."),
+         authors = str_remove_all(authors, pattern = ",")) |>
+  na.omit()
+```
+
+Merging both datasets
+
+```{r}
+data_tidied_scopus_ref <- 
+  data_tidied_scopus_ref |> 
+  rename(main_ref = SR,
+         id_ref = CR,
+         AU = authors,
+         PY = year)
+
+sebastian_scopus_1 <- 
+  sebastian_scopus |> 
+  mutate(main_ref = "",
+         id_ref = "")
+```
+
+Creating the ASN
+
+```{r}
+
+dummy <- 
+  data_tidied_scopus_ref |> 
+  dplyr::select(AU, PY) |>
+  mutate(PY = as.numeric(PY)) |> 
+  bind_rows(sebastian_scopus |> 
+              dplyr::select(AU, PY) ) |> 
+  unique()
+
+sebastian_asn <- 
+  biblioNetwork(M = data.frame(dummy), 
+                analysis = "collaboration", 
+                network = "authors") |> 
+  graph_from_adjacency_matrix(mode = "undirected", 
+                              weighted = TRUE) |> 
+  simplify() |> 
+  as_tbl_graph() |> 
+  activate(nodes) |> 
+  mutate(communities = group_components(type = "weak")) |> 
+  filter(communities == 1) 
+  
+```
+
+```{r}
+sebastian_asn_2 <- 
+  sebastian_asn_1 |> 
+  activate(nodes) |> 
+  mutate(degree = centrality_degree())
+  
+```
+
 
 ```{r}
 # Create the edge_list from main papers
@@ -57,7 +252,7 @@ data_tidied_scopus_main <-
   sebastian_scopus |> 
   select(SR, AU, PY) |> 
   separate_rows(AU, sep = ";")
-  
+
 edgelist_scopus_dummy <- 
   tibble(Source = as.character(),
          Target = as.character(),
@@ -216,7 +411,7 @@ author_collab_graphml_nodes <-
   rename(author = name) |> 
   rownames_to_column("name") |> 
   left_join(dat, 
-             by = c("name" = "student_id"))
+            by = c("name" = "student_id"))
 
 author_collab_graphml_edges <- 
   graph_scopus |> 
@@ -298,7 +493,7 @@ for (i in 1:length(author_ref_production$CR)) {
     zoo::rollapply(2, by=2, c) |> 
     as_tibble() |> 
     mutate(authors_1 = str_c(V1, V2, sep = " "))
-    unite(authors, sep = " ") |> 
+  unite(authors, sep = " ") |> 
     mutate(authors = str_replace(authors, "(?<= [[:alpha:]]).*", ""))
 }
 ```
@@ -326,7 +521,7 @@ sebastian_asn <-
   graph_from_data_frame(directed = TRUE) |> 
   as_tbl_graph() |> 
   convert(to_simple)
-  
+
 sebastian_nodes <- 
   sebastian_asn |> 
   activate(nodes) |> 
@@ -504,9 +699,9 @@ sebastian_cronbach <-
          Cronbach = "1") |> 
   right_join(sebastian_sd_mean) |> 
   dplyr::select(Variable_compuesta, 
-         Cronbach, 
-         promedio, 
-         des_est) |> 
+                Cronbach, 
+                promedio, 
+                des_est) |> 
   mutate(Cronbach = round(Cronbach, 
                           digits = 2),
          No_items = 3) |> 
@@ -515,7 +710,7 @@ sebastian_cronbach <-
                 Cronbach,
                 promedio,
                 des_est
-                )
+  )
 
 rm(sebastian_mean,
    sebastian_sd, 
