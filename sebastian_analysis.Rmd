@@ -25,6 +25,7 @@ library(Hmisc)
 library(bibliometrix)
 library(igraph)
 library(tidygraph)
+library(report)
 
 transpose_df <- function(df) {
   t_df <- data.table::transpose(df)
@@ -66,38 +67,6 @@ sebastian_asn_metrics <-
 
 ## Inferential statistic
 
-
-
-Getting ego density
-
-```{r}
-sebastian_asn_igraph <- 
-  sebastian_asn |> 
-  activate(nodes) |> 
-  mutate(degree = centrality_degree()) |> 
-  filter(degree != 1) |> 
-  as.igraph()
-
-
-egonet_list <- make_ego_graph(sebastian_asn_igraph)
-
-dat <- data.frame(
-  name = names(V(sebastian_asn_igraph)),
-  egonet_density = lapply(egonet_list, 
-                          graph.density) %>% 
-    unlist(),
-  constraint = lapply(egonet_list, 
-                          constraint) %>% 
-    unlist()
-)
-
-sebastian_asn_ego <- 
-  sebastian_asn |> 
-  activate(nodes) |> 
-  left_join(dat)
-
-```
-
 Getting papers published per author
 
 ```{r}
@@ -112,10 +81,12 @@ Merging data
 
 ```{r}
 sebastian_asn_total <- 
-  sebastian_asn_ego |> 
+  sebastian_asn_metrics |> 
   activate(nodes) |> 
   left_join(authors_production)
 ```
+
+### Linear Regression
 
 Correlation between ego density and production
 
@@ -124,13 +95,37 @@ sebastian_data <-
   sebastian_asn_total |> 
   activate(nodes) |> 
   as_tibble() |> 
-  dplyr::select(egonet_density, 
+  dplyr::select(constraint,
+                degree,
                 total) |> 
   na.omit()
 
-summary(lm(egonet_density ~ total,
+summary(lm(constraint ~ total,
            sebastian_data))
 ```
+### Logistic Regression
+
+```{r}
+quantile(sebastian_data$total)
+```
+
+```{r}
+sebastian_data_glm <- 
+  sebastian_data |> 
+  mutate(productivity = if_else(total <= 2, "low", 
+                                "high"), 
+         productivity = as.factor(productivity))
+
+```
+
+Model
+
+```{r}
+glm(productivity ~ constraint,
+    sebastian_data_glm, family = "binomial") |> 
+  report()
+```
+
 
 # Others
 
@@ -233,7 +228,7 @@ sebastian_asn <-
   activate(nodes) |> 
   mutate(communities = group_components(type = "weak")) |> 
   filter(communities == 1) 
-  
+
 ```
 
 ```{r}
@@ -241,7 +236,7 @@ sebastian_asn_2 <-
   sebastian_asn_1 |> 
   activate(nodes) |> 
   mutate(degree = centrality_degree())
-  
+
 ```
 
 
