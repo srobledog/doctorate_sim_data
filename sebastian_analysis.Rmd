@@ -40,7 +40,9 @@ transpose_df <- function(df) {
 
 # Artículo 4 - ASN
 
-Cargando los datos
+## Preprocessing data 
+
+### Cargando los datos
 
 ```{r}
 sebastian_scopus <- 
@@ -49,41 +51,103 @@ sebastian_scopus <-
              format = "bibtex")
 ```
 
-Get Academic Social Network
+### Cleaning data
 
 ```{r}
-sebastian_asn <- 
-  get_asn(sebastian_scopus)
+sebastian_scopus_preprossed <- 
+  sebastian_scopus |> 
+  preprocessing()
 ```
 
+### Citation network
+
 ```{r}
-sebastian_asn_metrics <- 
-  sebastian_asn |> 
+sebastian_scopus_citation_network <- 
+  sebastian_scopus_preprossed |> 
+  select(SR, SR_ref) |> 
+  na.omit() |> 
+  graph.data.frame(directed = TRUE) |> 
+  simplify() |> 
+  as_tbl_graph() |> 
   activate(nodes) |> 
-  mutate(constraint = node_constraint(),
-         degree = centrality_degree())
+  mutate(out_degree = centrality_degree(mode = "out"),
+         in_degree = centrality_degree(mode = "in"),
+         components = group_components()) |> 
+  filter(components == 1) |> 
+  filter(!(out_degree == 0 & in_degree == 1))
 ```
 
+### Author's table
+
+```{r}
+sebastian_scopus_au_SR <- 
+  sebastian_scopus_preprossed |> 
+  select(SR, SR_ref, AU) |> 
+  filter(is.na(SR_ref)) |> 
+  select(-SR_ref) |> 
+  bind_rows(sebastian_scopus_preprossed |> 
+              select(SR_ref, AU) |> 
+              filter(!is.na(SR_ref)) |> 
+              select(SR = SR_ref, 
+                     AU)) |> 
+  na.omit() |> 
+  unique() 
+
+authors <- 
+  sebastian_scopus_au_SR |> 
+  separate_rows(AU, sep = ";") |> 
+  count(AU, sort = TRUE) |> 
+  rename(papers = n) |> 
+  na.omit() |> 
+  filter(AU != "")
+```
+
+### Academic Social Network
+
+```{r}
+citation_network_SR <- 
+  sebastian_scopus_citation_network |> 
+  activate(nodes) |> 
+  select(SR = name, in_degree) |> 
+  as_tibble()
+
+sebastian_scopus_cita_net_SR_AU <- 
+  citation_network_SR |>
+  left_join(sebastian_scopus_au_SR)
+
+sebastian_scopus_au_citation_network <- 
+  sebastian_scopus_cita_net_SR_AU |>
+  data.frame() |> 
+  biblioNetwork(analysis = "collaboration", 
+                network = "authors") |> 
+  graph_from_adjacency_matrix(weighted = TRUE, 
+                              mode = "undirected") |> 
+  simplify() |> 
+  as_tbl_graph() |> 
+  activate(nodes) |> 
+  mutate(components = group_components(type = "weak"),
+         degree = centrality_degree(),
+         constraint = node_constraint()) |> 
+  filter(components == 1)
+
+# sebastian_scopus_au_citation_network |> 
+#   write_graph("sebastian_asn_cita.graphml", 
+#               "graphml")
+```
 
 ## Inferential statistic
-
-Getting papers published per author
-
-```{r}
-authors_production <- 
-  dummy |> 
-  count(AU) |> 
-  rename(name = AU,
-         total = n)
-```
 
 Merging data
 
 ```{r}
-sebastian_asn_total <- 
-  sebastian_asn_metrics |> 
+lm_data <- 
+  sebastian_scopus_au_citation_network |> 
   activate(nodes) |> 
-  left_join(authors_production)
+  select(AU = name, 
+         degree, 
+         constraint) |> 
+  as_tibble() |> 
+  left_join(authors)
 ```
 
 ### Linear Regression
@@ -91,18 +155,10 @@ sebastian_asn_total <-
 Correlation between ego density and production
 
 ```{r}
-sebastian_data <- 
-  sebastian_asn_total |> 
-  activate(nodes) |> 
-  as_tibble() |> 
-  dplyr::select(constraint,
-                degree,
-                total) |> 
-  na.omit()
-
-summary(lm(constraint ~ total,
-           sebastian_data))
+summary(lm(constraint ~ papers,
+           lm_data))
 ```
+
 ### Logistic Regression
 
 ```{r}
@@ -112,7 +168,7 @@ quantile(sebastian_data$total)
 ```{r}
 sebastian_data_glm <- 
   sebastian_data |> 
-  mutate(productivity = if_else(total <= 2, "low", 
+  mutate(productivity = if_else(total <= 3, "low", 
                                 "high"), 
          productivity = as.factor(productivity))
 
