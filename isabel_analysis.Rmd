@@ -39,45 +39,96 @@ transpose_df <- function(df) {
 Cargando los datos
 
 ```{r}
-isa_scopus <- 
-  convert2df("data/Isa_scopus.bib",
+isabel_scopus <- 
+  convert2df("data/isabel_scopus.bib",
              dbsource = "scopus", 
              format = "bibtex")
 
-write_csv(isa_scopus, "data/isa_scopus_df.csv")
+# write_csv(isabel_scopus, "data/isabel_scopus_df.csv")
+```
 
-isa_asn <- 
-  isa_scopus |> 
-  dplyr::select(SR, AU) |> 
-  separate_rows(AU, 
-                sep = ";") |> 
-  group_by(SR) |> 
-  filter(n() > 1) |> 
-  expand(from = AU, to = AU) |> 
-  filter( from != to) |> 
-  ungroup() |> 
-  dplyr::select(-SR) |> 
-  graph_from_data_frame(directed = TRUE) |> 
+### Cleaning data
+
+```{r}
+isabel_scopus_preprossed <- 
+  isabel_scopus |> 
+  preprocessing()
+```
+
+### Citation network
+
+```{r}
+isabel_scopus_citation_network <- 
+  isabel_scopus_preprossed |> 
+  select(SR, SR_ref) |> 
+  na.omit() |> 
+  graph.data.frame(directed = TRUE) |> 
+  simplify() |> 
   as_tbl_graph() |> 
-  convert(to_simple)
-  
-isa_nodes <- 
-  isa_asn |> 
   activate(nodes) |> 
-  as_tibble() |> 
-  rename(Name = name) |> 
-  rownames_to_column("Id") |> 
-  select(Id, Name)
+  mutate(out_degree = centrality_degree(mode = "out"),
+         in_degree = centrality_degree(mode = "in"),
+         components = group_components()) |> 
+  dplyr::filter(components == 1) |> 
+  dplyr::filter(!(out_degree == 0 & in_degree == 1))
+```
 
-isa_edges <- 
-  isa_asn |> 
-  activate(edges) |> 
-  as_tibble() |> 
-  select(Source = from,
-         Target = to)
+### Author's table
 
-write_csv(isa_nodes, "data/isa_nodes.csv")
-write_csv(isa_edges, "data/isa_edges.csv")
+```{r}
+isabel_scopus_au_SR <- 
+  isabel_scopus_preprossed |> 
+  select(SR, SR_ref, AU) |> 
+  dplyr::filter(is.na(SR_ref)) |> 
+  dplyr::select(-SR_ref) |> 
+  bind_rows(isabel_scopus_preprossed |> 
+              dplyr::select(SR_ref, AU) |> 
+              dplyr::filter(!is.na(SR_ref)) |> 
+              dplyr::select(SR = SR_ref, 
+                            AU)) |> 
+  na.omit() |> 
+  unique() 
+
+authors <- 
+  isabel_scopus_au_SR |> 
+  separate_rows(AU, sep = ";") |> 
+  count(AU, sort = TRUE) |> 
+  rename(papers = n) |> 
+  na.omit() |> 
+  dplyr::filter(AU != "")
+```
+
+### Academic Social Network
+
+```{r}
+isabel_citation_network_SR <- 
+  isabel_scopus_citation_network |> 
+  activate(nodes) |> 
+  select(SR = name, in_degree) |> 
+  as_tibble()
+
+isabel_scopus_cita_net_SR_AU <- 
+  isabel_citation_network_SR |>
+  left_join(isabel_scopus_au_SR)
+
+isabel_scopus_au_citation_network <- 
+  isabel_scopus_cita_net_SR_AU |>
+  data.frame() |> 
+  biblioNetwork(analysis = "collaboration", 
+                network = "authors") |> 
+  graph_from_adjacency_matrix(weighted = TRUE, 
+                              mode = "undirected") |> 
+  simplify() |> 
+  as_tbl_graph() |> 
+  activate(nodes) |> 
+  mutate(components = group_components(type = "weak"),
+         degree = centrality_degree(),
+         constraint = node_constraint()) |> 
+  dplyr::filter(components == 1)
+
+isabel_scopus_au_citation_network |>
+  as.igraph() |>
+  write_graph("data/isabel_graph.graphml", "graphml")
 ```
 
 # Artículo 3 - LM

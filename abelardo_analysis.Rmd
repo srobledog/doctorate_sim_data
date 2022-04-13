@@ -1,6 +1,6 @@
 ---
 title: "Abelardo_Analysis"
-author: "Sebastian Robledo"
+author: "abelardo Robledo"
 date: "3/9/2022"
 output: 
   html_document:
@@ -34,11 +34,131 @@ transpose_df <- function(df) {
 }
 ```
 
-# Artículo 1
+# Artículo 4 - ASN
 
-## SEM Análisis
+Cargando los datos
 
-### Simulación de datos
+```{r}
+abelardo_scopus <- 
+  convert2df("data/abelardo_scopus.bib",
+             dbsource = "scopus", 
+             format = "bibtex")
+
+# write_csv(abelardo_scopus, "data/abelardo_scopus_df.csv")
+```
+
+### Cleaning data
+
+```{r}
+abelardo_scopus_preprossed <- 
+  abelardo_scopus |> 
+  preprocessing()
+```
+
+### Citation network
+
+```{r}
+abelardo_scopus_citation_network <- 
+  abelardo_scopus_preprossed |> 
+  select(SR, SR_ref) |> 
+  na.omit() |> 
+  graph.data.frame(directed = TRUE) |> 
+  simplify() |> 
+  as_tbl_graph() |> 
+  activate(nodes) |> 
+  mutate(out_degree = centrality_degree(mode = "out"),
+         in_degree = centrality_degree(mode = "in"),
+         components = group_components()) |> 
+  dplyr::filter(components == 1) |> 
+  dplyr::filter(!(out_degree == 0 & in_degree == 1))
+```
+
+### Author's table
+
+```{r}
+abelardo_scopus_au_SR <- 
+  abelardo_scopus_preprossed |> 
+  select(SR, SR_ref, AU) |> 
+  dplyr::filter(is.na(SR_ref)) |> 
+  dplyr::select(-SR_ref) |> 
+  bind_rows(abelardo_scopus_preprossed |> 
+              dplyr::select(SR_ref, AU) |> 
+              dplyr::filter(!is.na(SR_ref)) |> 
+              dplyr::select(SR = SR_ref, 
+                            AU)) |> 
+  na.omit() |> 
+  unique() 
+
+authors <- 
+  abelardo_scopus_au_SR |> 
+  separate_rows(AU, sep = ";") |> 
+  count(AU, sort = TRUE) |> 
+  rename(papers = n) |> 
+  na.omit() |> 
+  dplyr::filter(AU != "")
+```
+
+### Academic Social Network
+
+```{r}
+citation_network_SR <- 
+  abelardo_scopus_citation_network |> 
+  activate(nodes) |> 
+  select(SR = name, in_degree) |> 
+  as_tibble()
+
+abelardo_scopus_cita_net_SR_AU <- 
+  citation_network_SR |>
+  left_join(abelardo_scopus_au_SR)
+
+abelardo_scopus_au_citation_network <- 
+  abelardo_scopus_cita_net_SR_AU |>
+  data.frame() |> 
+  biblioNetwork(analysis = "collaboration", 
+                network = "authors") |> 
+  graph_from_adjacency_matrix(weighted = TRUE, 
+                              mode = "undirected") |> 
+  simplify() |> 
+  as_tbl_graph() |> 
+  activate(nodes) |> 
+  mutate(components = group_components(type = "weak"),
+         degree = centrality_degree(),
+         constraint = node_constraint()) |> 
+  dplyr::filter(components == 1)
+```
+
+## Inferential statistic
+
+Merging data
+
+```{r}
+lm_data <- 
+  abelardo_scopus_au_citation_network |> 
+  activate(nodes) |> 
+  dplyr::select(AU = name, 
+                degree, 
+                constraint) |> 
+  as_tibble() |> 
+  left_join(authors)
+```
+
+### Linear Regression
+
+Correlation between ego density and production
+
+```{r}
+summary(lm(constraint ~ papers,
+           lm_data))
+```
+
+
+# Artículo 3 - LM
+
+# Artículo 2 - GLM
+
+# Artículo 1 - SEM
+
+Simulación de datosPC = Pensamiento Crítico
 
 RE = Ritual Evaluativo DE = Deserción Escolar CD = Creencias de los
 docentes
@@ -191,9 +311,9 @@ abelardo_cronbach <-
          Cronbach = "1") |> 
   right_join(abelardo_sd_mean) |> 
   dplyr::select(Variable_compuesta, 
-         Cronbach, 
-         promedio, 
-         des_est) |> 
+                Cronbach, 
+                promedio, 
+                des_est) |> 
   mutate(Cronbach = round(Cronbach, 
                           digits = 2),
          No_items = 3) |> 
@@ -202,7 +322,7 @@ abelardo_cronbach <-
                 Cronbach,
                 promedio,
                 des_est
-                )
+  )
 
 rm(abelardo_mean,
    abelardo_sd, 

@@ -26,6 +26,8 @@ library(bibliometrix)
 library(igraph)
 library(tidygraph)
 library(report)
+library(fBasics)
+library(reshape2)
 
 transpose_df <- function(df) {
   t_df <- data.table::transpose(df)
@@ -133,7 +135,30 @@ sebastian_scopus_au_citation_network <-
 # sebastian_scopus_au_citation_network |> 
 #   write_graph("sebastian_asn_cita.graphml", 
 #               "graphml")
+
+# sebastian_scopus_au_citation_network <-
+#   sebastian_scopus_au_citation_network |> 
+#   activate(nodes) |> 
+#   mutate(clustering = local_triangles())
+# 
+# sebastian_scopus_au_citation_network <-
+#   sebastian_scopus_au_citation_network |> 
+#   activate(nodes) |> 
+#   mutate(clustering = 2*clustering/(degree*(degree-1)))
+
+edge_list <- 
+  sebastian_scopus_au_citation_network |> 
+  activate(edges) |> 
+  as_tibble()
+
 ```
+
+### Transforming data
+
+```{r}
+
+```
+
 
 ## Inferential statistic
 

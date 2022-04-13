@@ -1,7 +1,7 @@
 preprocessing <- function(data) {
 
   scopus_cleaned <-
-    data |>
+    abelardo_scopus |>
     select(SR, CR) |>
     na.omit()  |>
     separate_rows(CR, sep = "; ") |>
@@ -82,12 +82,12 @@ preprocessing <- function(data) {
     mutate(JI = if_else(type_ref == 1,
                         str_trim(JI),
                         JI)) |>
-    filter(type_ref == 1) |>
-    filter(JI != "") |>
-    mutate(JI = str_remove_all(JI, "\\.")) |>
-    mutate(SR_ref = gsub("^(.*?);.*", "\\1", AU),
+    dplyr::filter(type_ref == 1) |>
+    dplyr::filter(JI != "") |>
+    dplyr::mutate(JI = str_remove_all(JI, "\\.")) |>
+    dplyr::mutate(SR_ref = gsub("^(.*?);.*", "\\1", AU),
            SR_ref = str_c(SR_ref, ", ", PY, ", ", JI, sep = "")) |>
-    add_column(DE = NA, .after = "AU",
+    tibble::add_column(DE = NA, .after = "AU",
                ID = NA,
                C1 = NA,
                AB = NA,
@@ -119,7 +119,7 @@ preprocessing <- function(data) {
                AU1_UN = NA,
                AU_UN_NR = NA,
                SR_FULL = NA) |>
-    select(AU, DE, ID, C1, CR, JI, AB, PA, AR, chemicals_cas,
+    dplyr::select(AU, DE, ID, C1, CR, JI, AB, PA, AR, chemicals_cas,
            coden, RP, DT, DI, BE, FU, BN, SN, SO,
            LA, TC, PN, page_count, PP, PU, PM, DB, sponsors, url,
            VL, PY, FX, AU_UN, AU1_UN, AU_UN_NR, SR_FULL, SR, SR_ref)
