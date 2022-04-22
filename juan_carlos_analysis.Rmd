@@ -22,6 +22,11 @@ library(ltm)
 library(gt)
 library(semPlot)
 library(Hmisc)
+library(flextable)
+library(broom)
+library(report)
+library(bibliometrix)
+library(janitor)
 
 transpose_df <- function(df) {
   t_df <- data.table::transpose(df)
@@ -34,7 +39,41 @@ transpose_df <- function(df) {
 }
 ```
 
-# Artículo 1
+# Artículo 3 - LM
+
+# Artículo 2 - GLM
+
+Tabla
+
+```{r message=FALSE, warning=FALSE, echo=FALSE}
+juan_data_glm <- 
+  read_csv("https://docs.google.com/spreadsheets/d/1K7bf9VENtGdZ3bchLkIWI5r242KVUZG2OMY08YAuMf8/export?format=csv&gid=0") |> 
+  row_to_names(row_number = 1) |> 
+  mutate_if(is.character, list(as.numeric)) |> 
+  mutate(EA = (i1 + i2 + i3)/3,
+         BL = (i4 + i5 + i6)/3,
+         DHP = (i7 + i8 +i9)/3,
+         DHP = case_when(DHP < 3 ~ "si",
+                         DHP >= 3 ~ "no"),
+         DHP = as_factor(DHP))|> 
+mutate(DHP = as.factor(DHP))
+  
+juan_model_glm <- 
+  glm(DHP ~ EA + BL,
+      family = "binomial",
+      juan_data_glm)
+
+as_flextable(juan_model_glm)
+
+```
+
+Análisis
+
+```{r, echo=FALSE}
+report(juan_model_glm)
+```
+
+# Artículo 1 - SEM
 
 ## SEM Análisis
 

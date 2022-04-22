@@ -22,6 +22,12 @@ library(ltm)
 library(gt)
 library(semPlot)
 library(Hmisc)
+library(flextable)
+library(broom)
+library(report)
+library(bibliometrix)
+library(janitor)
+
 
 transpose_df <- function(df) {
   t_df <- data.table::transpose(df)
@@ -39,103 +45,133 @@ transpose_df <- function(df) {
 Cargando los datos
 
 
-```{r}
-david_scopus <- 
-  convert2df("data/david_scopus.bib",
-             dbsource = "scopus", 
-             format = "bibtex")
+```{r, echo=FALSE}
+# david_scopus <- 
+#   convert2df("data/david_scopus.bib",
+#              dbsource = "scopus", 
+#              format = "bibtex")
 
 # write_csv(david_scopus, "data/david_scopus_df.csv")
 ```
 
 ### Cleaning data
 
-```{r}
-david_scopus_preprossed <- 
-  david_scopus |> 
-  preprocessing()
+```{r, echo=FALSE}
+# david_scopus_preprossed <- 
+#   david_scopus |> 
+#   preprocessing()
 ```
 
 ### Citation network
 
-```{r}
-david_scopus_citation_network <- 
-  david_scopus_preprossed |> 
-  select(SR, SR_ref) |> 
-  na.omit() |> 
-  graph.data.frame(directed = TRUE) |> 
-  simplify() |> 
-  as_tbl_graph() |> 
-  activate(nodes) |> 
-  mutate(out_degree = centrality_degree(mode = "out"),
-         in_degree = centrality_degree(mode = "in"),
-         components = group_components()) |> 
-  dplyr::filter(components == 1) |> 
-  dplyr::filter(!(out_degree == 0 & in_degree == 1))
+```{r, echo=FALSE}
+# david_scopus_citation_network <- 
+#   david_scopus_preprossed |> 
+#   select(SR, SR_ref) |> 
+#   na.omit() |> 
+#   graph.data.frame(directed = TRUE) |> 
+#   simplify() |> 
+#   as_tbl_graph() |> 
+#   activate(nodes) |> 
+#   mutate(out_degree = centrality_degree(mode = "out"),
+#          in_degree = centrality_degree(mode = "in"),
+#          components = group_components()) |> 
+#   dplyr::filter(components == 1) |> 
+#   dplyr::filter(!(out_degree == 0 & in_degree == 1))
 ```
 
 ### Author's table
 
-```{r}
-david_scopus_au_SR <- 
-  david_scopus_preprossed |> 
-  select(SR, SR_ref, AU) |> 
-  dplyr::filter(is.na(SR_ref)) |> 
-  dplyr::select(-SR_ref) |> 
-  bind_rows(david_scopus_preprossed |> 
-              dplyr::select(SR_ref, AU) |> 
-              dplyr::filter(!is.na(SR_ref)) |> 
-              dplyr::select(SR = SR_ref, 
-                            AU)) |> 
-  na.omit() |> 
-  unique() 
-
-authors <- 
-  david_scopus_au_SR |> 
-  separate_rows(AU, sep = ";") |> 
-  count(AU, sort = TRUE) |> 
-  rename(papers = n) |> 
-  na.omit() |> 
-  dplyr::filter(AU != "")
+```{r, echo=FALSE}
+# david_scopus_au_SR <- 
+#   david_scopus_preprossed |> 
+#   select(SR, SR_ref, AU) |> 
+#   dplyr::filter(is.na(SR_ref)) |> 
+#   dplyr::select(-SR_ref) |> 
+#   bind_rows(david_scopus_preprossed |> 
+#               dplyr::select(SR_ref, AU) |> 
+#               dplyr::filter(!is.na(SR_ref)) |> 
+#               dplyr::select(SR = SR_ref, 
+#                             AU)) |> 
+#   na.omit() |> 
+#   unique() 
+# 
+# authors <- 
+#   david_scopus_au_SR |> 
+#   separate_rows(AU, sep = ";") |> 
+#   count(AU, sort = TRUE) |> 
+#   rename(papers = n) |> 
+#   na.omit() |> 
+#   dplyr::filter(AU != "")
 ```
 
 ### Academic Social Network
 
-```{r}
-citation_network_SR <- 
-  david_scopus_citation_network |> 
-  activate(nodes) |> 
-  select(SR = name, in_degree) |> 
-  as_tibble()
-
-david_scopus_cita_net_SR_AU <- 
-  citation_network_SR |>
-  left_join(david_scopus_au_SR)
-
-david_scopus_au_citation_network <- 
-  david_scopus_cita_net_SR_AU |>
-  data.frame() |> 
-  biblioNetwork(analysis = "collaboration", 
-                network = "authors") |> 
-  graph_from_adjacency_matrix(weighted = TRUE, 
-                              mode = "undirected") |> 
-  simplify() |> 
-  as_tbl_graph() |> 
-  activate(nodes) |> 
-  mutate(components = group_components(type = "weak"),
-         degree = centrality_degree(),
-         constraint = node_constraint()) |> 
-  dplyr::filter(components == 1)
-
-david_scopus_au_citation_network |>
-  as.igraph() |>
-  write_graph("data/david_graph.graphml", "graphml")
+```{r, echo=FALSE}
+# citation_network_SR <- 
+#   david_scopus_citation_network |> 
+#   activate(nodes) |> 
+#   select(SR = name, in_degree) |> 
+#   as_tibble()
+# 
+# david_scopus_cita_net_SR_AU <- 
+#   citation_network_SR |>
+#   left_join(david_scopus_au_SR)
+# 
+# david_scopus_au_citation_network <- 
+#   david_scopus_cita_net_SR_AU |>
+#   data.frame() |> 
+#   biblioNetwork(analysis = "collaboration", 
+#                 network = "authors") |> 
+#   graph_from_adjacency_matrix(weighted = TRUE, 
+#                               mode = "undirected") |> 
+#   simplify() |> 
+#   as_tbl_graph() |> 
+#   activate(nodes) |> 
+#   mutate(components = group_components(type = "weak"),
+#          degree = centrality_degree(),
+#          constraint = node_constraint()) |> 
+#   dplyr::filter(components == 1)
+# 
+# david_scopus_au_citation_network |>
+#   as.igraph() |>
+#   write_graph("data/david_graph.graphml", "graphml")
 ```
 
 
 # Artículo 3 - LM
 
 # Artículo 2 - GLM
+
+Tabla
+
+```{r message=FALSE, warning=FALSE, echo=FALSE}
+david_data_glm <- 
+  read_csv("https://docs.google.com/spreadsheets/d/1YJhjTfJIqe8wKlVAIwbUJ2FGbFZ3G8XEb64YfOtMKLg/export?format=csv&gid=0") |> 
+  row_to_names(row_number = 1) |> 
+  mutate_if(is.character, list(as.numeric)) |> 
+  mutate(EF = (i1 + i2 + i3)/3,
+         FC = (i4 + i5 + i6)/3,
+         IRDE = (i7 + i8 +i9)/3,
+         IRDE = case_when(IRDE < 3 ~ "si",
+                         IRDE >= 3 ~ "no"),
+         IRDE = as_factor(IRDE))|> 
+mutate(IRDE = as.factor(IRDE))
+   
+david_model_glm <- 
+  glm(IRDE ~ EF + FC,
+      family = "binomial",
+      david_data_glm)
+
+as_flextable(david_model_glm)
+
+```
+
+Análisis
+
+```{r, echo=FALSE}
+report(david_model_glm)
+```
 
 # Artículo 1 - SEM
 
