@@ -158,6 +158,38 @@ Correlation between ego density and production
 
 # Artículo 3 - LM
 
+Tabla
+
+```{r message=FALSE, warning=FALSE, echo=FALSE}
+# abelardo_data_glm <- 
+#   AbelardoSimData |> 
+#   mutate(DE = (i7 + i8 +i9)/3,
+#          DE = case_when(DE < 3 ~ "si",
+#                         DE >= 3 ~ "no"), 
+#          DE = as_factor(DE), 
+#          RE = (i1 + i2 + i3)/3,
+#          CD = (i4 + i5 + i6)/3)
+
+abelardo_data_lm <- 
+  read_csv("https://docs.google.com/spreadsheets/d/1HQ5OacHpgTP4KH1lIDrN178qEw0_gOuO4ZKQD7dA-QY/export?format=csv&gid=1801016843") |> 
+  mutate(RE = (i1 + i2 + i3)/3,
+         CD = (i4 + i5 + i6)/3,
+         DE = (i7 + i8 + i9)/3)
+
+abelardo_model_lm <- 
+  lm(DE ~ RE + CD,
+     abelardo_data_lm)
+
+as_flextable(abelardo_model_lm)
+
+```
+
+Análisis
+
+```{r, echo=FALSE}
+report(abelardo_model_lm)
+```
+
 # Artículo 2 - GLM
 
 Tabla

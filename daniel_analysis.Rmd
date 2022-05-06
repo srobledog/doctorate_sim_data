@@ -138,6 +138,30 @@ Cargando los datos
 
 # Artículo 3 - LM
 
+Tabla
+
+```{r message=FALSE, warning=FALSE, echo=FALSE}
+daniel_data_lm <- 
+  read_csv("https://docs.google.com/spreadsheets/d/1NtWseND38kv9LiWFZFFDfewEBZ424VeqqgkZ1s8v97M/export?format=csv&gid=1651557603") |> 
+  mutate_if(is.character, list(as.numeric)) |> 
+  mutate(EP = (i1 + i2 + i3)/3,
+         MP = (i4 + i5 + i6)/3,
+         REL = (i7 + i8 +i9)/3)
+  
+daniel_model_lm <- 
+  lm(REL ~ EP + MP,
+      daniel_data_lm)
+
+as_flextable(daniel_model_lm)
+
+```
+
+Análisis
+
+```{r, echo=FALSE}
+report(daniel_model_lm)
+```
+
 # Artículo 2 - GLM
 
 
@@ -192,12 +216,12 @@ danielModel <-
 
 danielDataModel <- 
   "EP =~ i1 + 1.0*i2 + 0.9*i3
-   MP =~ i4 + 0.9*i5 + 1.2*i6
+   MP =~ i4 + 0.9*i5 + 0.9*i6
    REL =~ i7 + 0.9*i8 + 0.9*i9
    REL ~ 0.9*EP 
    REL ~ 0.9*MP"
 
-set.seed(10001)
+set.seed(111)
 danielSimModel.norm <- 
   simulateData(danielDataModel, 
                sample.nobs = 1000)

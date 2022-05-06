@@ -138,6 +138,32 @@ transpose_df <- function(df) {
 
 # Artículo 3 - LM
 
+Tabla
+
+```{r message=FALSE, warning=FALSE, echo=FALSE}
+john_data_lm <- 
+  read_csv("https://docs.google.com/spreadsheets/d/1iBXy2PTXTqXk3Y0JxOPzyCGooVuwJaaeGXCGk-bEqpY/export?format=csv&gid=0") |> 
+  row_to_names(row_number = 1) |> 
+  mutate_if(is.character, list(as.numeric)) |> 
+  mutate(EE = (i1 + i2 + i3)/3,
+         IC = (i4 + i5 + i6)/3,
+         RE = (i7 + i8 +i9)/3)
+
+  
+john_model_lm <- 
+  lm(RE ~ EE + IC,
+      john_data_lm)
+
+as_flextable(john_model_lm)
+
+```
+
+Análisis
+
+```{r, echo=FALSE}
+report(john_model_lm)
+```
+
 # Artículo 2 - GLM
 
 Tabla

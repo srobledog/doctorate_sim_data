@@ -138,6 +138,27 @@ Cargando los datos
 
 # Artículo 3 - LM
 
+Tabla
+
+```{r message=FALSE, warning=FALSE, echo=FALSE}
+hilda_data_lm <- 
+  read_csv("https://docs.google.com/spreadsheets/d/1ekDeSYXeJW3JS3zajN4QD_G9e5cLrQIentLRreHhuW4/export?format=csv&gid=114898697") 
+
+hilda_model_lm <- 
+  lm(PL ~ REL + ES,
+      hilda_data_lm) #hilda_data_glm)
+
+as_flextable(hilda_model_lm)
+
+```
+
+Análisis
+
+```{r, echo=FALSE}
+report(hilda_model_lm)
+```
+
+
 # Artículo 2 - GLM
 
 Tabla
@@ -145,12 +166,10 @@ Tabla
 ```{r message=FALSE, warning=FALSE, echo=FALSE}
 hilda_data_glm <- 
   read_csv("https://docs.google.com/spreadsheets/d/1ekDeSYXeJW3JS3zajN4QD_G9e5cLrQIentLRreHhuW4/export?format=csv&gid=1173023527") |> 
-  mutate(EE = as.numeric(EE),
-         CRP = as.numeric(CRP),
-         PC = as.factor(PC))
+  mutate(PL = as.factor(PL))
 
 hilda_model_glm <- 
-  glm(PC ~ EE + CRP,
+  glm(PL ~ REL + ES,
       family = "binomial",
       hilda_data_glm) #hilda_data_glm)
 
@@ -188,11 +207,11 @@ hildaModel <-
    PC ~ CRP"
 
 hildaDataModel <- 
-  "EE =~ i1 + 1.0*i2 + 0.8*i3
-   CRP =~ i4 + 0.9*i5 + 1.2*i6
-   PC =~ i7 + 0.9*i8 + 0.9*i9
-   PC ~ 0.8*EE 
-   PC ~ 0.9*CRP"
+  "EE =~ 0.7*i1 + i2 + 0.8*i3
+   CRP =~ 0.8*i4 + 0.9*i5 + 1.2*i6
+   PC =~ 0.9*i7 + 0.9*i8 + 0.9*i9
+   PC ~ 0.9*EE 
+   PC ~ 0.7*CRP"
 
 set.seed(1234)
 hildaSimModel.norm <- 

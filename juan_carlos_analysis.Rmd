@@ -41,6 +41,31 @@ transpose_df <- function(df) {
 
 # Artículo 3 - LM
 
+Tabla
+
+```{r message=FALSE, warning=FALSE, echo=FALSE}
+juan_data_lm <- 
+  read_csv("https://docs.google.com/spreadsheets/d/1K7bf9VENtGdZ3bchLkIWI5r242KVUZG2OMY08YAuMf8/export?format=csv&gid=0") |> 
+  row_to_names(row_number = 1) |> 
+  mutate_if(is.character, list(as.numeric)) |> 
+  mutate(EA = (i1 + i2 + i3)/3,
+         BL = (i4 + i5 + i6)/3,
+         DHP = (i7 + i8 +i9)/3)
+  
+juan_model_lm <- 
+  lm(DHP ~ EA + BL,
+      juan_data_lm)
+
+as_flextable(juan_model_lm)
+
+```
+
+Análisis
+
+```{r, echo=FALSE}
+report(juan_model_lm)
+```
+
 # Artículo 2 - GLM
 
 Tabla

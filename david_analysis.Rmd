@@ -141,6 +141,29 @@ Cargando los datos
 
 # Artículo 3 - LM
 
+Tabla
+
+```{r message=FALSE, warning=FALSE, echo=FALSE}
+david_data_lm <- 
+  read_csv("https://docs.google.com/spreadsheets/d/1YJhjTfJIqe8wKlVAIwbUJ2FGbFZ3G8XEb64YfOtMKLg/export?format=csv&gid=551496924") |> 
+  mutate(EF = (i1 + i2 + i3)/3,
+         FC = (i4 + i5 + i6)/3,
+         IRDE = (i7 + i8 +i9)/3)
+   
+david_model_lm <- 
+  lm(IRDE ~ EF + FC,
+      david_data_lm)
+
+as_flextable(david_model_lm)
+
+```
+
+Análisis
+
+```{r, echo=FALSE}
+report(david_model_lm)
+```
+
 # Artículo 2 - GLM
 
 Tabla
@@ -197,13 +220,13 @@ davidModel <-
    IRDE ~ FC"
 
 davidDataModel <- 
-  "EF =~ i1 + 1.0*i2 + 0.9*i3
+  "EF =~ i1 + 0.9*i2 + 0.9*i3
    FC =~ i4 + 0.9*i5 + 1.2*i6
-   IRDE =~ i7 + 0.9*i8 + 0.9*i9
-   IRDE ~ 0.9*EF 
-   IRDE ~ 0.9*FC"
+   IRDE =~ 0.9*i7 + 0.9*i8 + i9
+   IRDE ~ 0.7*EF 
+   IRDE ~ 0.7*FC"
 
-set.seed(10001)
+set.seed(1111)
 davidSimModel.norm <- 
   simulateData(davidDataModel, 
                sample.nobs = 1000)

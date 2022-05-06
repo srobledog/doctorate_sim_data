@@ -138,6 +138,29 @@ Cargando los datos
 
 # Artículo 3 - LM
 
+Tabla
+
+```{r message=FALSE, warning=FALSE, echo=FALSE}
+isabel_data_lm <- 
+  read_csv("https://docs.google.com/spreadsheets/d/137lqyih66CzC0x45ydf4_dgdj_l0MybnZWJXUUHmkyo/export?format=csv&gid=1564390675") |> 
+  mutate(FA = (i1 + i2 + i3)/3,
+         ES = (i4 + i5 + i6)/3,
+         IE = (i7 + i8 +i9)/3)
+
+isabel_model_lm <- 
+  lm(IE ~ FA + ES,
+      isabel_data_lm)
+
+as_flextable(isabel_model_lm)
+
+```
+
+Análisis
+
+```{r, echo=FALSE}
+report(isabel_model_lm)
+```
+
 # Artículo 2 - GLM
 
 Tabla
